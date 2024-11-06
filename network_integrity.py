@@ -4,14 +4,14 @@
 import hashlib
 from scapy.all import rdpcap, IP, TCP, UDP
 from collections import defaultdict
-
+import ipaddress
 
 class VerifyNetwork:
     
     def __init__(self):
-        self.source_ip = input("Pass the source IP:")
-        self.lan_tap = "lan_tap.pcap"
-        self.computer_trace = "network_trace.pcap"
+        self.source_ip = input("Pass the source IP:").strip().lower()
+        self.lan_tap = input("path to the lan tap.pcap:").strip()
+        self.computer_trace = input("path to the computer trace.pcap:").strip()
 
     def load_packets(self, pcap_file):
         packets = rdpcap(pcap_file)
@@ -20,6 +20,7 @@ class VerifyNetwork:
     def generate_packet_hash(self, packet, src_ip):
         if packet.haslayer(IP):
             ip_layer = packet.getlayer(IP)
+            ip_addr = ipaddress.ip_address(ip_layer.src)
             if ip_layer.src == src_ip:
                 tcp_layer = packet.getlayer(TCP)
                 udp_layer = packet.getlayer(UDP)
@@ -32,6 +33,11 @@ class VerifyNetwork:
                     sport, dport = udp_layer.sport, udp_layer.dport
                 packet_data = f"{ip_layer.src}-{dst}-{sport}-{dport}-{payload}"
                 return hashlib.md5(packet_data.encode()).hexdigest()
+            else:
+               if ip_addr.is_private:
+                   print(f"Found IP that is not the specified source, yet local: {ip_layer.src}")
+        else:
+            print("Packet found without IP layer")
         return None
 
     def compare_pcaps(self, lan_tap_file, computer_tap_file, src_ip):
@@ -71,6 +77,5 @@ class VerifyNetwork:
         self.compare_pcaps(lan_tap_file=self.lan_tap, computer_tap_file=self.computer_trace, src_ip=self.source_ip)
     
 if __name__ == "__main__":
-    vf = VerifyNetwork()
-    vf.verify()
-
+    vn = VerifyNetwork()
+    vn.verify()
